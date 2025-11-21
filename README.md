@@ -1,9 +1,9 @@
 # Final-508
-Model Development & Experimentation
+**Model Development & Experimentation**
 
 This project implements a complete, reproducible machine-learning workflow for predicting cervical cancer biopsy outcomes using the Cervical Cancer Risk Factors dataset (Kaggle). All model training, hyperparameter exploration, and metric logging are performed using Databricks MLflow, ensuring end-to-end experiment tracking and version control.
 
-Overview of the Experiment Script
+**Overview of the Experiment Script**
 
 The core experimentation pipeline is implemented in:
 
@@ -11,7 +11,7 @@ cervical_cancer_full_experiments.py
 
 This script runs 20+ machine learning experiments across 8 different model families, evaluating each model on a consistent train/test split. The goal is to identify which algorithm and configuration provides the highest recall (sensitivity), which is the most important metric for medical screening applications.
 
-Key Features
+**Key Features**
 
 Fully automated experiment runner
 
