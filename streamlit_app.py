@@ -1,31 +1,45 @@
-import streamlit as st
+import os
 import numpy as np
 import joblib
-import os
+import streamlit as st
 
-st.set_page_config(page_title="Cervical Cancer Risk Prediction", page_icon="🔬")
+# ----------------------------------------------------------
+# Page config
+# ----------------------------------------------------------
+st.set_page_config(
+    page_title="Cervical Cancer Risk Prediction",
+    page_icon="🔬",
+    layout="centered",
+)
 
+# ----------------------------------------------------------
+# Title & description
+# ----------------------------------------------------------
 st.title("🔬 Cervical Cancer Risk Prediction Tool")
+
 st.write(
     """
-This app uses a trained machine learning model to estimate the risk of a **positive cervical cancer biopsy**  
-based on a small set of behavioral and clinical risk factors.
+This app uses a trained machine learning model to estimate the risk of a
+**positive cervical cancer biopsy** based on a small set of behavioral
+and clinical risk factors.
 
 > **Disclaimer:** This tool is for educational purposes only and is **not** a medical device.
 """
 )
 
-# -------------------------------------------------------------------
-# 1. Load trained model
-# -------------------------------------------------------------------
+st.markdown("---")
+
+# ----------------------------------------------------------
+# Load model bundle: {imputer, feature_order, model}
+# ----------------------------------------------------------
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "best_cervical_model.pkl")
 
-model = None
+bundle = None
 load_error = None
 
 if os.path.exists(MODEL_PATH):
     try:
-        model = joblib.load(MODEL_PATH)
+        bundle = joblib.load(MODEL_PATH)
     except Exception as e:
         load_error = str(e)
 else:
@@ -35,66 +49,80 @@ if load_error:
     st.error(
         "❌ Could not load the trained model.\n\n"
         f"Details: `{load_error}`\n\n"
-        "Make sure `best_cervical_model.pkl` is committed to the repo and placed in the same folder as `streamlit_app.py`."
+        "Make sure `best_cervical_model.pkl` is committed to the repo and placed "
+        "in the same folder as `streamlit_app.py`."
     )
     st.stop()
-else:
-    st.success("✅ Trained model loaded successfully.")
 
+st.success("✅ Trained model loaded successfully.")
 
-# -------------------------------------------------------------------
-# 2. Collect user inputs
-#    NOTE: The model must be trained to expect these 5 features
-#          in exactly this order for predictions to work correctly.
-# -------------------------------------------------------------------
+model = bundle["model"]
+imputer = bundle["imputer"]
+feature_order = bundle.get("feature_order", ["Age", "Num of pregnancies", "Smokes", "Hormonal Contraceptives", "STDs"])
+
+# ----------------------------------------------------------
+# Patient inputs
+# ----------------------------------------------------------
 st.header("Patient Information")
 
 col1, col2 = st.columns(2)
 
 with col1:
     age = st.number_input("Age", min_value=15, max_value=90, value=30, step=1)
-    num_preg = st.number_input("Number of Pregnancies", min_value=0, max_value=20, value=1, step=1)
+    num_preg = st.number_input("Number of Pregnancies", min_value=0, max_value=20, value=0, step=1)
     smokes = st.selectbox("Smokes?", ["No", "Yes"])
 
 with col2:
     hormonal = st.selectbox("Uses Hormonal Contraceptives?", ["No", "Yes"])
     stds = st.selectbox("History of STDs?", ["No", "Yes"])
 
-st.markdown("----")
+st.markdown("---")
 
-# Convert categorical inputs to numeric features
-input_vector = np.array(
-    [
-        [
+st.subheader("Run Risk Prediction")
+
+if st.button("Predict Cervical Cancer Risk"):
+    # Build raw feature vector in the same semantic order the model was trained on
+    raw_input = np.array(
+        [[
             age,
             num_preg,
             1 if smokes == "Yes" else 0,
             1 if hormonal == "Yes" else 0,
             1 if stds == "Yes" else 0,
-        ]
-    ]
-)
+        ]]
+    )
 
-st.subheader("Run Risk Prediction")
-
-if st.button("Predict Cervical Cancer Risk"):
     try:
-        pred = model.predict(input_vector)[0]
+        # Apply imputer from training
+        X = imputer.transform(raw_input)
+
+        # Predict with trained model
+        pred = model.predict(X)[0]
+
+        # If your model supports probabilities, you can also show them:
+        prob_text = ""
+        if hasattr(model, "predict_proba"):
+            proba = model.predict_proba(X)[0]
+            prob_text = f"\n\nEstimated probability of **positive** biopsy: `{proba[1]:.3f}`"
 
         if pred == 1:
-            st.error("⚠️ **High predicted risk of a positive biopsy.**\n\n"
-                     "This suggests elevated cervical cancer risk.\n\n"
-                     "_In a real clinical setting, further medical evaluation would be recommended._")
+            st.error(
+                "⚠️ **High predicted risk of a positive cervical cancer biopsy.**"
+                + prob_text
+                + "\n\nIn a real clinical setting, further medical evaluation would be recommended."
+            )
         else:
-            st.success("✅ **Low predicted risk of a positive biopsy.**\n\n"
-                       "This suggests lower cervical cancer risk, though routine screening is still important.")
+            st.success(
+                "✅ **Low predicted risk of a positive cervical cancer biopsy.**"
+                + prob_text
+                + "\n\nRoutine screening is still important according to medical guidelines."
+            )
+
     except Exception as e:
         st.error(
             "❌ Prediction failed.\n\n"
-            "Most likely the model was trained on a different feature set or feature order.\n\n"
-            f"Technical details: `{e}`\n\n"
-            "To fix this, retrain your model so it expects exactly 5 features in this order:\n"
-            "`[age, num_pregnancies, smokes_binary, hormonal_binary, stds_binary]`."
+            "Most likely there is a mismatch between the model's expected features and the inputs.\n\n"
+            f"Technical details: `{e}`"
         )
 
 st.markdown("---")
