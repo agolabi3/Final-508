@@ -1,5 +1,5 @@
-scikit-learn==1.4.1
-numpy
-pandas
-joblib
-streamlit
+streamlit==1.39.0
+numpy==1.26.4
+pandas==2.2.2
+scikit-learn==1.3.2
+joblib==1.3.2
